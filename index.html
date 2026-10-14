@@ -1,0 +1,356 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>World Meeting Planner</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#e8711f">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Meeting Planner">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<style>
+/* Layout: one hero card with the Vietnam-time slider, then a city grid whose strips share one 24-hour axis */
+:root{
+  --bg:#faf6f2; --card:#ffffff; --ink:#2a1a12; --muted:#7a6658; --line:#efe3d8;
+  --accent:#c9580c; --accent-soft:#fdeadb; --amber:#2f6fb0;
+  --work:#e8711f; --awake:#fbdcc4; --night:#3a2216; --tipbg:#2a1a12; --tipink:#ffffff;
+  --shadow:0 1px 2px rgba(0,0,0,.04),0 8px 24px rgba(0,0,0,.06);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#17110d; --card:#221913; --ink:#f7efe8; --muted:#b39d8d; --line:#3a2b20;
+    --accent:#ff9a4d; --accent-soft:#3a2414; --amber:#7fb2ef;
+    --work:#e8711f; --awake:#4a2e1c; --night:#0d0805; --tipbg:#f7efe8; --tipink:#17110d;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.35); color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#17110d; --card:#221913; --ink:#f7efe8; --muted:#b39d8d; --line:#3a2b20;
+  --accent:#ff9a4d; --accent-soft:#3a2414; --amber:#7fb2ef;
+  --work:#e8711f; --awake:#4a2e1c; --night:#0d0805; --tipbg:#f7efe8; --tipink:#17110d;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.35); color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+html{overflow-x:clip}
+body{background:var(--bg); color:var(--ink); min-height:100vh; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; line-height:1.45; -webkit-font-smoothing:antialiased}
+.wrap{max-width:1080px; margin:0 auto; padding-block:28px 48px; padding-left:max(16px, env(safe-area-inset-left, 0px)); padding-right:max(16px, env(safe-area-inset-right, 0px))}
+button{font:inherit; font-weight:600; cursor:pointer; border-radius:12px; padding:10px 16px; border:1px solid var(--line); background:var(--card); color:var(--ink); transition:background .15s, transform .08s}
+button:hover{background:var(--accent-soft)}
+button:active{transform:translateY(1px)}
+button:focus-visible,input:focus-visible,[tabindex]:focus-visible{outline:3px solid var(--accent); outline-offset:2px}
+.primary{background:var(--accent); border-color:var(--accent); color:#fff}
+.primary:hover{background:var(--accent); opacity:.92}
+[hidden]{display:none !important}
+
+/* header */
+.top{display:flex; justify-content:space-between; align-items:center; gap:14px; flex-wrap:wrap; margin-bottom:18px; position:relative}
+.title{display:flex; align-items:center; gap:12px}
+h1{font-size:clamp(1.8rem,4.5vw,2.6rem); letter-spacing:-.02em; margin:0; line-height:1.1; text-wrap:balance}
+.info-btn{width:32px; height:32px; padding:0; border-radius:50%; color:var(--muted)}
+.pop{position:absolute; top:calc(100% + 6px); left:0; width:min(400px,100%); z-index:30; background:var(--card); border:1px solid var(--line); border-radius:14px; box-shadow:var(--shadow); padding:16px 18px; font-size:.95rem; opacity:0; visibility:hidden; transform:translateY(4px); transition:opacity .15s, transform .15s, visibility .15s}
+.info:hover .pop,.info:focus-within .pop{opacity:1; visibility:visible; transform:none}
+.pop h3{margin:0 0 4px; font-size:.75rem; letter-spacing:.07em; text-transform:uppercase; color:var(--muted)}
+.pop p{margin:0 0 12px} .pop p:last-child{margin:0}
+.pop b{color:var(--accent)}
+.seg{display:inline-flex; padding:4px; background:var(--card); border:1px solid var(--line); border-radius:12px}
+.seg button{border:0; background:transparent; color:var(--muted); padding:8px 16px; border-radius:9px}
+.seg button[aria-pressed="true"]{background:var(--accent); color:#fff}
+
+/* hero */
+.card{background:var(--card); border:1px solid var(--line); border-radius:18px; box-shadow:var(--shadow); padding:22px 24px}
+.hero{display:grid; grid-template-columns:auto 1fr; gap:10px 28px; align-items:center; margin-bottom:16px}
+.home .label{font-size:.8rem; font-weight:700; letter-spacing:.07em; text-transform:uppercase; color:var(--muted)}
+.home .big{font-size:clamp(2.6rem,7vw,4.2rem); font-weight:800; letter-spacing:-.03em; line-height:1; color:var(--accent); font-variant-numeric:tabular-nums; white-space:nowrap}
+.home .city{font-weight:600; margin-top:6px}
+.controls{display:flex; flex-direction:column; gap:12px; min-width:0}
+.summary{font-weight:600}
+.summary b{color:var(--accent)}
+.slide-row{display:flex; gap:8px; align-items:center}
+.slide-row button{padding:8px 12px}
+input[type=range]{flex:1; min-width:0; accent-color:var(--accent); height:28px; cursor:pointer}
+.quiz{margin-bottom:16px; display:flex; justify-content:space-between; align-items:center; gap:14px; flex-wrap:wrap; border-color:var(--accent); background:var(--accent-soft)}
+.quiz .q{font-size:clamp(1.15rem,2.6vw,1.5rem); font-weight:700; margin:0}
+.quiz .q2{margin:4px 0 0; color:var(--muted); font-weight:600}
+.quiz .q2 b{color:var(--ink)}
+.quiz .btns{display:flex; gap:8px}
+
+/* city grid */
+.cities{padding:10px 14px 14px}
+.grid{display:grid; grid-template-columns:minmax(150px,1.1fr) minmax(130px,.9fr) minmax(0,3.2fr) 64px; grid-auto-flow:row dense; column-gap:16px; align-items:center}
+.row > .cname{grid-column:1} .row > .ctime{grid-column:2} .row > .strip-wrap{grid-column:3} .row > .diff{grid-column:4}
+.axis{display:contents}
+.axis .ticks{grid-column:3; position:relative; height:26px; font-size:.75rem; color:var(--muted); font-weight:600}
+.axis .ticks span{position:absolute; top:6px; transform:translateX(-50%); font-variant-numeric:tabular-nums}
+.axis .ticks span:first-child{transform:none} .axis .ticks span:last-child{transform:translateX(-100%)}
+.axis .lbl{grid-column:1 / span 2; font-size:.75rem; font-weight:700; letter-spacing:.07em; text-transform:uppercase; color:var(--muted)}
+.row{display:contents}
+.row > *{padding:10px 0; border-top:1px solid var(--line)}
+.row.target > *{background:var(--accent-soft)}
+.row.target > .cname{border-radius:12px 0 0 12px; padding-left:10px}
+.row.target > .diff{border-radius:0 12px 12px 0; padding-right:8px}
+.cname{font-weight:700; font-size:1.05rem}
+.cname small{display:block; font-weight:500; color:var(--muted); font-size:.82rem}
+.row.home-row .cname::after{content:"You"; margin-left:8px; font-size:.7rem; font-weight:700; letter-spacing:.05em; text-transform:uppercase; background:var(--accent); color:#fff; padding:2px 7px; border-radius:999px; vertical-align:2px}
+.ctime{font-size:1.3rem; font-weight:800; font-variant-numeric:tabular-nums; white-space:nowrap}
+.ctime small{display:block; font-size:.8rem; font-weight:600; color:var(--muted)}
+.ctime small.away{color:var(--amber)}
+.strip-wrap{position:relative; cursor:pointer}
+.strip{display:grid; grid-template-columns:repeat(48,1fr); height:30px; border-radius:8px; overflow:hidden}
+.strip i{display:block}
+.strip i.work{background:var(--work)} .strip i.awake{background:var(--awake)} .strip i.night{background:var(--night)}
+.marker{position:absolute; top:-6px; bottom:-6px; width:3px; margin-left:-1.5px; background:var(--amber); border-radius:2px; pointer-events:none; transition:left .15s}
+.status{display:block; font-size:.8rem; font-weight:600; color:var(--muted); margin-top:4px}
+.diff{justify-self:end; font-weight:800; font-size:.9rem; padding:4px 8px; border-radius:999px; background:var(--accent-soft); color:var(--accent); font-variant-numeric:tabular-nums; white-space:nowrap}
+.diff.behind{background:color-mix(in srgb, var(--amber) 18%, transparent); color:var(--amber)}
+.legend{display:flex; gap:16px; flex-wrap:wrap; margin-top:14px; font-size:.82rem; color:var(--muted); font-weight:600}
+.legend span{display:inline-flex; align-items:center; gap:6px}
+.legend i{width:14px; height:14px; border-radius:4px; display:inline-block}
+
+/* hover tips */
+[data-tip]{position:relative}
+[data-tip]::after{content:attr(data-tip); position:absolute; right:0; bottom:calc(100% + 8px); background:var(--tipbg); color:var(--tipink); font-size:.82rem; font-weight:500; padding:6px 10px; border-radius:8px; white-space:nowrap; pointer-events:none; opacity:0; transform:translateY(4px); transition:opacity .15s, transform .15s; z-index:20}
+[data-tip]:hover::after,[data-tip]:focus-visible::after{opacity:1; transform:none}
+[data-tip=""]::after{display:none}
+
+@media (max-width:760px){
+  .hero{grid-template-columns:1fr}
+  .grid{grid-template-columns:1fr auto auto}
+  .axis .lbl{grid-column:1 / -1}
+  .axis .ticks{grid-column:1 / -1}
+  .row > *{border-top:0; padding:4px 0}
+  .row > .cname{border-top:1px solid var(--line); padding-top:12px}
+  .row > .cname{grid-column:1} .row > .ctime{grid-column:2} .row > .diff{grid-column:3}
+  .row > .ctime{border-top:1px solid var(--line); padding-top:12px; text-align:right}
+  .row > .diff{border-top:1px solid var(--line); padding-top:4px; margin-top:12px; align-self:start}
+  .row > .strip-wrap{grid-column:1 / -1; padding-bottom:12px}
+  .grid{grid-auto-flow:row}
+  .row.target > *{background:none}
+  .row.target .cname{color:var(--accent)}
+}
+@media (prefers-reduced-motion:reduce){ .marker,.pop,[data-tip]::after{transition:none} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div class="title">
+      <h1>World Meeting Planner</h1>
+      <div class="info">
+        <button class="info-btn" aria-label="How to use">i</button>
+        <div class="pop" role="tooltip">
+          <h3>How to use</h3>
+          <p>Drag the slider to change the time in Vietnam. Every city changes too. <b>Green</b> means people are at work.</p>
+          <h3>Say it</h3>
+          <p>Seoul is 2 hours <b>ahead of</b> Vietnam.<br>London is 6 hours <b>behind</b> Vietnam.<br>Let's have a call at 9 a.m. <b>your time</b>.</p>
+          <h3>Good to know</h3>
+          <p>Some cities, like London, New York and Sydney, change their clocks in summer and winter. This page always uses today's real times.</p>
+          <h3>Keys</h3>
+          <p>← → move 30 minutes · N new question · Space show answer</p>
+        </div>
+      </div>
+    </div>
+    <div class="seg" role="group" aria-label="Mode">
+      <button id="mExplore" aria-pressed="true">Explore</button>
+      <button id="mQuiz" aria-pressed="false">Quiz</button>
+    </div>
+  </div>
+
+  <div class="card quiz" id="quiz" hidden>
+    <div>
+      <p class="q" id="qText"></p>
+      <p class="q2" id="qText2">Is it a good time to call?</p>
+    </div>
+    <div class="btns">
+      <button class="primary" id="reveal">Show answer</button>
+      <button id="nextQ">New question</button>
+    </div>
+  </div>
+
+  <div class="card hero">
+    <div class="home">
+      <div class="label">Time in Vietnam</div>
+      <div class="big" id="homeTime">9:00 a.m.</div>
+      <div class="city" id="homeDay">Ho Chi Minh City</div>
+    </div>
+    <div class="controls">
+      <div class="summary" id="summary"></div>
+      <div class="slide-row">
+        <button id="back" aria-label="30 minutes earlier">−</button>
+        <input type="range" id="t" min="0" max="1410" step="30" value="540" aria-label="Time in Vietnam">
+        <button id="fwd" aria-label="30 minutes later">+</button>
+        <button id="now">Now</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card cities">
+    <div class="grid" id="grid">
+      <div class="axis">
+        <div class="lbl">City · local time</div>
+        <div class="ticks" id="ticks"></div>
+        <div></div>
+      </div>
+    </div>
+    <div class="legend">
+      <span><i style="background:var(--work)"></i>At work (8 a.m.–5 p.m.)</span>
+      <span><i style="background:var(--awake)"></i>Free time</span>
+      <span><i style="background:var(--night)"></i>Sleeping</span>
+      <span><i style="background:var(--amber); width:4px"></i>Your chosen time</span>
+    </div>
+  </div>
+</div>
+
+<script>
+const CITIES = [
+  {name:"Ho Chi Minh City", country:"Vietnam",        tz:"Asia/Ho_Chi_Minh", home:true},
+  {name:"Singapore",        country:"Singapore",      tz:"Asia/Singapore"},
+  {name:"Kuala Lumpur",     country:"Malaysia",       tz:"Asia/Kuala_Lumpur"},
+  {name:"Beijing",          country:"China",          tz:"Asia/Shanghai"},
+  {name:"Seoul",            country:"South Korea",    tz:"Asia/Seoul"},
+  {name:"Sydney",           country:"Australia",      tz:"Australia/Sydney"},
+  {name:"Dubai",            country:"United Arab Emirates", tz:"Asia/Dubai"},
+  {name:"Moscow",           country:"Russia",         tz:"Europe/Moscow"},
+  {name:"Johannesburg",     country:"South Africa",   tz:"Africa/Johannesburg"},
+  {name:"London",           country:"United Kingdom", tz:"Europe/London"},
+  {name:"São Paulo",        country:"Brazil",         tz:"America/Sao_Paulo"},
+  {name:"Buenos Aires",     country:"Argentina",      tz:"America/Argentina/Buenos_Aires"},
+  {name:"New York",         country:"United States",  tz:"America/New_York"}
+];
+const VN_OFFSET = 7 * 60; // Vietnam has no summer time: always UTC+7
+
+const $ = s => document.querySelector(s);
+const fmts = {};
+function parts(ms, tz){
+  const f = fmts[tz] || (fmts[tz] = new Intl.DateTimeFormat("en-GB", {timeZone:tz, year:"numeric", month:"2-digit", day:"2-digit", hour:"2-digit", minute:"2-digit", hourCycle:"h23", weekday:"short"}));
+  const o = {}; f.formatToParts(new Date(ms)).forEach(p => o[p.type] = p.value);
+  const y=+o.year, m=+o.month, d=+o.day, h=+o.hour % 24, mi=+o.minute;
+  return {y, m, d, h, mi, wd:o.weekday, asUTC: Date.UTC(y, m-1, d, h, mi)};
+}
+function fmt12(h, m){
+  const ap = h < 12 ? "a.m." : "p.m."; const hh = h % 12 === 0 ? 12 : h % 12;
+  return `${hh}:${String(m).padStart(2,"0")} ${ap}`;
+}
+function kind(h){ return (h >= 8 && h < 17) ? "work" : (h >= 6 && h < 22) ? "awake" : "night"; }
+const WEEKEND = ["Sat","Sun"];
+
+/* today's date in Vietnam → midnight Vietnam as a UTC instant */
+const nowVN = parts(Date.now(), "Asia/Ho_Chi_Minh");
+const base = Date.UTC(nowVN.y, nowVN.m-1, nowVN.d) - VN_OFFSET * 60000;
+const instantAt = t => base + t * 60000;
+
+/* axis */
+[0,6,12,18,24].forEach(h => { const s = document.createElement("span"); s.style.left = (h/24*100) + "%"; s.textContent = h === 24 ? "midnight" : fmt12(h,0).replace(":00",""); $("#ticks").append(s); });
+
+/* rows */
+const grid = $("#grid");
+CITIES.forEach((c, i) => {
+  const row = document.createElement("div"); row.className = "row" + (c.home ? " home-row" : ""); row.dataset.i = i;
+  row.innerHTML = `<div class="cname"></div><div class="ctime"><span class="tt"></span><small></small></div>
+    <div class="diff" tabindex="0"></div>
+    <div class="strip-wrap"><div class="strip"></div><div class="marker"></div><span class="status"></span></div>`;
+  row.querySelector(".cname").append(document.createTextNode(c.name));
+  const sm = document.createElement("small"); sm.textContent = c.country; row.querySelector(".cname").append(sm);
+  const strip = row.querySelector(".strip");
+  for (let k = 0; k < 48; k++){ const p = parts(instantAt(k*30), c.tz); const cell = document.createElement("i"); cell.className = WEEKEND.includes(p.wd) && kind(p.h) === "work" ? "awake" : kind(p.h); strip.append(cell); }
+  row.querySelector(".strip-wrap").addEventListener("click", e => {
+    const r = strip.getBoundingClientRect(); const x = Math.max(0, Math.min(.999, (e.clientX - r.left) / r.width));
+    setT(Math.floor(x * 48) * 30);
+  });
+  c.el = row; grid.append(row);
+});
+
+/* state */
+let t = 540, mode = "explore", quiz = null, revealed = false;
+
+function render(){
+  $("#t").value = t;
+  const ms = instantAt(t);
+  const home = parts(ms, "Asia/Ho_Chi_Minh");
+  $("#homeTime").textContent = fmt12(home.h, home.mi);
+  $("#homeDay").textContent = `Ho Chi Minh City · ${home.wd}`;
+  let atWork = 0;
+  CITIES.forEach((c, i) => {
+    const p = parts(ms, c.tz), row = c.el;
+    const diffMin = (p.asUTC - ms) / 60000 - VN_OFFSET;
+    const dayDiff = Math.round((Date.UTC(p.y,p.m-1,p.d) - Date.UTC(home.y,home.m-1,home.d)) / 864e5);
+    const weekend = WEEKEND.includes(p.wd);
+    const k = weekend && kind(p.h) === "work" ? "awake" : kind(p.h);
+    if (k === "work") atWork++;
+    const hide = mode === "quiz" && !revealed && !c.home;
+    row.querySelector(".tt").textContent = hide ? "?" : fmt12(p.h, p.mi);
+    const small = row.querySelector(".ctime small");
+    small.textContent = hide ? "" : (dayDiff === 1 ? `${p.wd} · tomorrow` : dayDiff === -1 ? `${p.wd} · yesterday` : p.wd);
+    small.className = dayDiff ? "away" : "";
+    const icon = (p.h >= 6 && p.h < 18) ? "☀️" : "🌙";
+    row.querySelector(".status").textContent = hide ? "" : `${icon} ${k === "work" ? "At work" : k === "awake" ? (weekend ? "Weekend" : "Free time") : "Sleeping"}`;
+    row.querySelector(".marker").style.left = (t / 1440 * 100) + "%";
+    const d = row.querySelector(".diff");
+    const hrs = Math.abs(diffMin) / 60, hTxt = Number.isInteger(hrs) ? hrs : hrs.toFixed(1);
+    if (c.home){ d.textContent = "±0"; d.className = "diff"; d.dataset.tip = "This is you"; }
+    else if (hide){ d.textContent = "?"; d.className = "diff"; d.dataset.tip = ""; }
+    else {
+      d.textContent = diffMin === 0 ? "±0" : (diffMin > 0 ? "+" : "−") + hTxt + " h";
+      d.className = "diff" + (diffMin < 0 ? " behind" : "");
+      d.dataset.tip = diffMin === 0 ? `${c.name} has the same time as Vietnam` : `${c.name} is ${hTxt} hour${hrs === 1 ? "" : "s"} ${diffMin > 0 ? "ahead of" : "behind"} Vietnam`;
+    }
+    row.classList.toggle("target", mode === "quiz" && quiz && quiz.i === i);
+  });
+  $("#summary").innerHTML = mode === "quiz" && !revealed
+    ? "Work it out, then press <b>Show answer</b>."
+    : `<b>${atWork} of ${CITIES.length}</b> cities are at work right now.`;
+  if (mode === "quiz" && quiz){
+    const c = CITIES[quiz.i], p = parts(ms, c.tz);
+    $("#qText").textContent = revealed ? `It's ${fmt12(p.h, p.mi)} in ${c.name}.` : `It's ${fmt12(home.h, home.mi)} in Ho Chi Minh City. What time is it in ${c.name}?`;
+    const k = WEEKEND.includes(p.wd) && kind(p.h) === "work" ? "awake" : kind(p.h);
+    $("#qText2").innerHTML = revealed
+      ? (k === "work" ? "<b>Yes!</b> They are at work. Good time to call." : k === "awake" ? "<b>Not really.</b> They are not at work." : "<b>No!</b> They are sleeping.")
+      : "Is it a good time to call?";
+    $("#reveal").textContent = revealed ? "Hide answer" : "Show answer";
+  }
+}
+function setT(v){ t = Math.max(0, Math.min(1410, v)); render(); }
+
+function newQuestion(){
+  const others = CITIES.map((_, i) => i).filter(i => !CITIES[i].home);
+  let i; do { i = others[Math.floor(Math.random() * others.length)]; } while (quiz && others.length > 1 && i === quiz.i);
+  quiz = {i}; revealed = false;
+  t = (7 + Math.floor(Math.random() * 15)) * 60; // 7 a.m. to 9 p.m. Vietnam time, on the hour
+  render();
+}
+function setMode(m){
+  mode = m;
+  $("#mExplore").setAttribute("aria-pressed", m === "explore");
+  $("#mQuiz").setAttribute("aria-pressed", m === "quiz");
+  $("#quiz").hidden = m !== "quiz";
+  if (m === "quiz") newQuestion(); else { quiz = null; revealed = false; render(); }
+}
+
+$("#t").addEventListener("input", e => setT(+e.target.value));
+$("#back").onclick = () => setT(t - 30);
+$("#fwd").onclick = () => setT(t + 30);
+$("#now").onclick = () => { const p = parts(Date.now(), "Asia/Ho_Chi_Minh"); setT(p.h * 60 + (p.mi >= 30 ? 30 : 0)); };
+$("#mExplore").onclick = () => setMode("explore");
+$("#mQuiz").onclick = () => setMode("quiz");
+$("#reveal").onclick = () => { revealed = !revealed; render(); };
+$("#nextQ").onclick = newQuestion;
+document.addEventListener("keydown", e => {
+  if (e.target.tagName === "INPUT") return;
+  const k = e.key.toLowerCase();
+  if (k === "arrowright"){ e.preventDefault(); setT(t + 30); }
+  else if (k === "arrowleft"){ e.preventDefault(); setT(t - 30); }
+  else if (k === "n" && mode === "quiz"){ newQuestion(); }
+  else if (k === " " && mode === "quiz"){ e.preventDefault(); revealed = !revealed; render(); }
+});
+
+render();
+
+if ("serviceWorker" in navigator && location.protocol === "https:") {
+  window.addEventListener("load", () => { navigator.serviceWorker.register("sw.js").catch(() => {}); });
+}
+</script>
+</body>
+</html>
